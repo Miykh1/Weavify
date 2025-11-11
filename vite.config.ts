@@ -3,17 +3,18 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // https://vitejs.dev/config/
-export default defineConfig(() => ({
+export default defineConfig({
+  base: '/Weavify/', 
+  plugins: [react()],
+  
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
   },
-  plugins: [
-    react(), // no componentTagger
-  ],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+});
