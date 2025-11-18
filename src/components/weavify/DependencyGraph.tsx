@@ -122,24 +122,62 @@ export const DependencyGraph = ({ elements, selectedId, onSelectElement }: Depen
 
     animate();
 
-    // Mouse interaction
+    // Enhanced mouse interaction
     const handleMouseDown = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Check if clicking on a node
+      for (const node of nodes) {
+        const pos = project3D(node.x, node.y, node.z);
+        const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+        const radius = 8 * pos.scale;
+        
+        if (distance < radius) {
+          onSelectElement(node.id);
+          return;
+        }
+      }
+      
       isDraggingRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      canvas.style.cursor = 'grabbing';
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (isDraggingRef.current) {
-        const deltaX = e.clientX - lastMouseRef.current.x;
-        const deltaY = e.clientY - lastMouseRef.current.y;
-        rotationRef.current.y += deltaX * 0.01;
-        rotationRef.current.x += deltaY * 0.01;
-        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      if (!isDraggingRef.current) {
+        // Highlight nodes on hover
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        let hovering = false;
+        for (const node of nodes) {
+          const pos = project3D(node.x, node.y, node.z);
+          const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+          const radius = 8 * pos.scale;
+          
+          if (distance < radius) {
+            hovering = true;
+            break;
+          }
+        }
+        
+        canvas.style.cursor = hovering ? 'pointer' : 'grab';
+        return;
       }
+      
+      const deltaX = e.clientX - lastMouseRef.current.x;
+      const deltaY = e.clientY - lastMouseRef.current.y;
+      rotationRef.current.y += deltaX * 0.01;
+      rotationRef.current.x += deltaY * 0.01;
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseUp = () => {
       isDraggingRef.current = false;
+      canvas.style.cursor = 'grab';
     };
 
     const handleClick = (e: MouseEvent) => {
