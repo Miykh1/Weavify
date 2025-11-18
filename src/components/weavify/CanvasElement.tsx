@@ -284,6 +284,30 @@ export const CanvasElement = ({
         </div>
       );
     }
+    
+    // Breadcrumb navigation
+    if (element.type === 'breadcrumb') {
+      const breadcrumbParts = (element.content || 'Home / Products / Current').split(' / ');
+      return (
+        <div className="flex items-center gap-2">
+          {breadcrumbParts.map((part, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span 
+                className={cn(
+                  "transition-colors",
+                  index < breadcrumbParts.length - 1 ? "cursor-pointer hover:underline" : "opacity-60"
+                )}
+                contentEditable={!element.locked}
+                suppressContentEditableWarning
+              >
+                {part}
+              </span>
+              {index < breadcrumbParts.length - 1 && <span className="opacity-40">/</span>}
+            </div>
+          ))}
+        </div>
+      );
+    }
 
     // Footer with sections
     if (element.type === 'footer') {
