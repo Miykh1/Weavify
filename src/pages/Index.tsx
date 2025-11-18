@@ -1,18 +1,3 @@
-import { useState, useCallback, useEffect } from "react";
-import { WeavifyElement, Tool, ViewMode } from "@/types/weavify";
-import { Button } from "@/components/ui/button";
-import { Toolbar } from "@/components/weavify/Toolbar";
-import { ComponentLibrary } from "@/components/weavify/ComponentLibrary";
-import { Canvas } from "@/components/weavify/Canvas";
-import { PropertiesPanel } from "@/components/weavify/PropertiesPanel";
-import { LayersPanel } from "@/components/weavify/LayersPanel";
-import { CodePanel } from "@/components/weavify/CodePanel";
-import { WelcomeDialog } from "@/components/weavify/WelcomeDialog";
-import { DependencyGraph } from "@/components/weavify/DependencyGraph";
-import { StateManagementPanel } from "@/components/weavify/StateManagementPanel";
-import { APIPanel } from "@/components/weavify/APIPanel";
-import { TimelineEditor } from "@/components/weavify/TimelineEditor";
-import { VisualScriptingGraph } from "@/components/weavify/VisualScriptingGraph";
 import { ExportPanel } from "@/components/weavify/ExportPanel";
 import { DeploymentPanel } from "@/components/weavify/DeploymentPanel";
 import { AccessibilityPanel } from "@/components/weavify/AccessibilityPanel";
@@ -33,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { componentTemplates } from "@/lib/componentTemplates";
 import { Eye, Save } from "lucide-react";
+import { FileImport } from "@/components/weavify/FileImport";
 
 const Index = () => {
   const [elements, setElements] = useState<WeavifyElement[]>([]);
@@ -61,6 +47,7 @@ const Index = () => {
   const [currentPageId, setCurrentPageId] = useState('home');
   const [showPreview, setShowPreview] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(320);
 
   // Auto-save functionality
   useEffect(() => {
@@ -181,7 +168,7 @@ const Index = () => {
   }, [history, historyIndex]);
 
   const handlePreview = useCallback(() => {
-    toast.success("Preview mode coming soon!");
+    setShowPreview(true);
   }, []);
 
   const handleExport = useCallback(() => {
@@ -220,9 +207,69 @@ const Index = () => {
   }, [clipboard, elements, addToHistory]);
 
   const handleSave = useCallback(() => {
-    localStorage.setItem('weavify-project', JSON.stringify({ elements, pages }));
-    toast.success("Project saved locally");
-  }, [elements, pages]);
+    try {
+      const projectData = {
+        elements,
+        pages,
+        currentPageId,
+        theme: currentTheme,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('weavify-project', JSON.stringify(projectData));
+      toast.success("Project saved successfully!");
+    } catch (error) {
+      toast.error("Failed to save project");
+      console.error('Save error:', error);
+    }
+  }, [elements, pages, currentPageId, currentTheme]);
+
+  const handleFileImport = {
+    image: (dataUrl: string) => {
+      const newElement: WeavifyElement = {
+        id: `element-${Date.now()}`,
+        type: 'image',
+        name: 'Imported Image',
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 300,
+        styles: { borderRadius: 8 },
+        props: { src: dataUrl },
+      };
+      setElements([...elements, newElement]);
+      addToHistory([...elements, newElement]);
+    },
+    text: (text: string) => {
+      const newElement: WeavifyElement = {
+        id: `element-${Date.now()}`,
+        type: 'text',
+        name: 'Imported Text',
+        x: 100,
+        y: 100,
+        width: 600,
+        height: 200,
+        styles: { fontSize: 14, padding: 16 },
+        content: text,
+      };
+      setElements([...elements, newElement]);
+      addToHistory([...elements, newElement]);
+    },
+    csv: (data: string[][]) => {
+      const newElement: WeavifyElement = {
+        id: `element-${Date.now()}`,
+        type: 'table',
+        name: 'Imported Table',
+        x: 100,
+        y: 100,
+        width: 800,
+        height: 400,
+        styles: { border: '1px solid #e2e8f0', borderRadius: 8 },
+        props: { data },
+      };
+      setElements([...elements, newElement]);
+      addToHistory([...elements, newElement]);
+    },
+  };
 
   // Theme application
   const handleApplyTheme = useCallback((theme: ThemeConfig) => {
@@ -427,36 +474,67 @@ const Index = () => {
               onClearSelection={() => setSelectedIds([])}
             />
             {showCode && (
-              <div className="h-80 border-t">
-                <Tabs value={bottomPanelTab} onValueChange={(v: any) => setBottomPanelTab(v)}>
-                  <TabsList className="w-full justify-start rounded-none border-b">
+              <div 
+                className="border-t relative group"
+                style={{ height: bottomPanelHeight }}
+              >
+                <div 
+                  className="absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary transition-colors z-10 group-hover:h-2"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const startY = e.clientY;
+                    const startHeight = bottomPanelHeight;
+                    
+                    const handleMouseMove = (e: MouseEvent) => {
+                      const delta = startY - e.clientY;
+                      const newHeight = Math.max(200, Math.min(600, startHeight + delta));
+                      setBottomPanelHeight(newHeight);
+                    };
+                    
+                    const handleMouseUp = () => {
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+                    
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }}
+                />
+                <Tabs value={bottomPanelTab} onValueChange={(v: any) => setBottomPanelTab(v)} className="h-full flex flex-col">
+                  <TabsList className="w-full justify-start rounded-none border-b flex-shrink-0">
                     <TabsTrigger value="code" className="text-xs">Code</TabsTrigger>
+                    <TabsTrigger value="json" className="text-xs">JSON</TabsTrigger>
                     <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
                     <TabsTrigger value="graph" className="text-xs">Dependencies</TabsTrigger>
                     <TabsTrigger value="scripting" className="text-xs">Visual Scripting</TabsTrigger>
                     <TabsTrigger value="export" className="text-xs">Export</TabsTrigger>
                     <TabsTrigger value="deploy" className="text-xs">Deploy</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="code" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="code" className="flex-1 m-0 overflow-hidden">
                     <CodePanel elements={elements} />
                   </TabsContent>
-                  <TabsContent value="timeline" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="json" className="flex-1 m-0 overflow-auto">
+                    <pre className="p-4 text-xs font-mono h-full overflow-auto bg-muted/10">
+                      <code className="text-foreground">{JSON.stringify({ elements, pages, currentPageId }, null, 2)}</code>
+                    </pre>
+                  </TabsContent>
+                  <TabsContent value="timeline" className="flex-1 m-0 overflow-hidden">
                     <TimelineEditor />
                   </TabsContent>
-                  <TabsContent value="graph" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="graph" className="flex-1 m-0 overflow-hidden">
                     <DependencyGraph 
                       elements={elements} 
                       selectedId={selectedId}
                       onSelectElement={setSelectedId}
                     />
                   </TabsContent>
-                  <TabsContent value="scripting" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="scripting" className="flex-1 m-0 overflow-hidden">
                     <VisualScriptingGraph />
                   </TabsContent>
-                  <TabsContent value="export" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="export" className="flex-1 m-0 overflow-auto">
                     <ExportPanel elements={elements} />
                   </TabsContent>
-                  <TabsContent value="deploy" className="h-[calc(100%-40px)] m-0">
+                  <TabsContent value="deploy" className="flex-1 m-0 overflow-auto">
                     <DeploymentPanel />
                   </TabsContent>
                 </Tabs>
@@ -540,6 +618,13 @@ const Index = () => {
           )}
         </div>
       </div>
+      
+      {/* File Import Overlay */}
+      <FileImport 
+        onImageImport={handleFileImport.image}
+        onTextImport={handleFileImport.text}
+        onCsvImport={handleFileImport.csv}
+      />
     </div>
   );
 };
